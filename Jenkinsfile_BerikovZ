@@ -1,11 +1,11 @@
-// Jenkinsfile_BerikovZ
+// Jenkinsfile_BerikovZ (updated — uses host docker CLI, not DinD)
 pipeline {
   agent any
 
   environment {
     IMAGE_NAME = "berikovz/todo-app"
     IMAGE_TAG  = "1.0"
-    DOCKER_PUSH = "false" // change to "true" if you want to push to DockerHub
+    DOCKER_PUSH = "false" // set to "true" in job parameters to enable push
   }
 
   stages {
@@ -41,14 +41,13 @@ pipeline {
     stage('Docker Build & (optional) Push') {
       steps {
         script {
-          docker.image('docker:24-dind').inside('--privileged -v /var/lib/docker') {
-            sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BerikovZ ."
-            if (env.DOCKER_PUSH == 'true') {
-              withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
-                sh 'docker logout'
-              }
+          // Use host docker (docker.sock mounted). Simpler and more reliable than DinD.
+          sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BerikovZ ."
+          if (env.DOCKER_PUSH == 'true') {
+            withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+              sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+              sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+              sh 'docker logout'
             }
           }
         }
